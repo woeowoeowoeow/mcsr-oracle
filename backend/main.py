@@ -72,6 +72,10 @@ class MatchupCreate(BaseModel):
     player_b: str
     season: int
 
+class SettleRequest(BaseModel):
+    winner: str
+    series_result: Optional[str] = None
+
 # --- Helpers ---
 
 def compute_starting_balance(data: dict) -> float:
@@ -500,31 +504,81 @@ async def close_matchup(matchup_id: str, secret: str = ''):
     db.collection('matchups').document(matchup_id).update({'status': 'closed'})
     return {'status': 'closed'}
 
-@app.post('/admin/settle/{matchup_id}')
-async def settle_matchup(matchup_id: str, secret: str = '', winner: str = ''):
+@app.post('/admin/reopen/{matchup_id}')
+async def reopen_matchup(matchup_id: str, secret: str = ''):
     if secret != ADMIN_SECRET:
         raise HTTPException(status_code=401)
     db = get_db()
     matchup_ref = db.collection('matchups').document(matchup_id)
-    matchup_ref.update({'status': 'settled', 'winner': winner})
+    matchup = matchup_ref.get()
+    if not matchup.exists:
+        raise HTTPException(status_code=404, detail='Matchup not found')
 
     bets = db.collection('bets').where('matchup_id', '==', matchup_id).get()
+    refunded = 0
+    for bet in bets:
+        bet_data = bet.to_dict()
+        if bet_data.get('settled'):
+            user_ref = db.collection('users').document(bet_data['user_id'])
+            user = user_ref.get()
+            if user.exists:
+                user_data = user.to_dict()
+                user_ref.update({'balance': user_data['balance'] + bet_data['amount']})
+            bet.reference.update({
+                'settled': False,
+                'payout': 0
+            })
+            refunded += 1
+
+    matchup_ref.update({
+        'status': 'open',
+        'winner': None,
+        'series_result': None
+    })
+
+    return {'status': 'reopened', 'bets_refunded': refunded}
+
+@app.post('/admin/settle/{matchup_id}')
+async def settle_matchup(matchup_id: str, req: SettleRequest, secret: str = ''):
+    if secret != ADMIN_SECRET:
+        raise HTTPException(status_code=401)
+    db = get_db()
+    matchup_ref = db.collection('matchups').document(matchup_id)
     matchup_data = matchup_ref.get().to_dict()
+    if not matchup_data:
+        raise HTTPException(status_code=404, detail="Matchup not found")
+
+    loser = matchup_data['player_b'] if req.winner == matchup_data['player_a'] else matchup_data['player_a']
+    actual_outcome = f"{req.winner} {req.series_result} {loser}" if req.series_result else None
+
+    matchup_ref.update({
+        'status': 'settled',
+        'winner': req.winner,
+        'series_result': req.series_result
+    })
+
+    bets = db.collection('bets').where('matchup_id', '==', matchup_id).get()
 
     for bet in bets:
         bet_data = bet.to_dict()
         user_ref = db.collection('users').document(bet_data['user_id'])
         user = user_ref.get().to_dict()
 
-        winner_side = 'a' if winner == matchup_data['player_a'] else 'b'
-        if bet_data['side'] == winner_side:
+        winner_side = 'a' if req.winner == matchup_data['player_a'] else 'b'
+
+        if bet_data.get('bet_type') == 'exact_result':
+            won = bet_data.get('predicted_outcome') == actual_outcome
+        else:
+            won = bet_data['side'] == winner_side
+
+        if won:
             payout = round(bet_data['amount'] * bet_data['odds_at_placement'], 2)
             user_ref.update({'balance': user['balance'] + payout})
             bet.reference.update({'settled': True, 'payout': payout})
         else:
             bet.reference.update({'settled': True, 'payout': 0})
 
-    return {'status': 'settled', 'winner': winner}
+    return {'status': 'settled', 'winner': req.winner, 'series_result': req.series_result}
 
 @app.on_event("startup")
 async def startup_check():
