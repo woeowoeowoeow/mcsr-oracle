@@ -1,22 +1,17 @@
-import React, { useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const AuthCallback = () => {
-  const [params] = useSearchParams();
-
+  const navigate = useNavigate();
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token) {
       localStorage.setItem('mcsr_token', token);
     }
-    window.location.href = '/';
-  }, [params]);
-
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', color: '#555' }}>
-      Logging in...
-    </div>
-  );
+    navigate('/');
+  }, []);
+  return <div style={{ color: '#e0e0e0', padding: '2rem' }}>Logging in...</div>;
 };
 
 export default AuthCallback;

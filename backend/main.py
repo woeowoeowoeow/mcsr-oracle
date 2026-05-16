@@ -282,6 +282,10 @@ async def place_bet(req: BetRequest, authorization: str = Header(None)):
     if not user.exists or user.to_dict()["balance"] < req.amount:
         raise HTTPException(status_code=400, detail="Insufficient balance")
 
+    existing = db.collection("bets").where("matchup_id", "==", req.matchup_id).where("user_id", "==", user_id).limit(1).get()
+    if len(existing) > 0:
+        raise HTTPException(status_code=400, detail="You already have a bet on this matchup")
+
     base_p = m_data["base_prob_a"]
     money_a = m_data.get("money_a", 0)
     money_b = m_data.get("money_b", 0)
