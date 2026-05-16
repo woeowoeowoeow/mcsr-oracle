@@ -12,3 +12,4 @@ joblib
 pandas
 numpy
 scikit-learn
+pyarrow
