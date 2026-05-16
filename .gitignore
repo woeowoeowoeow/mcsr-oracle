@@ -10,11 +10,15 @@ firebase_credentials.json
 # Python
 __pycache__/
 *.pyc
-*.pkl
 *.parquet
-*.json
 .ipynb_checkpoints/
 match_cache/
+
+# Specific json files to ignore
+firebase_credentials.json
+seen_match_ids.json
+qualified_players.json
+candidate_matches_s*.json
 
 # Node
 node_modules/
