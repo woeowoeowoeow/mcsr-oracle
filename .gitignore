@@ -1,0 +1,39 @@
+# Environment files
+.env
+.env.local
+backend/.env
+frontend/.env
+
+# Firebase credentials
+firebase_credentials.json
+
+# Python
+__pycache__/
+*.pyc
+*.pkl
+*.parquet
+*.json
+.ipynb_checkpoints/
+match_cache/
+
+# Node
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+
+# Jupyter notebooks (belong in mcsr-oracle repo)
+*.ipynb
+
+# Misc files
+.expo/
+old_data/
+app.py
+bracket.html
+generate_bracket.py
+settlement.py
+App.jsx
+FUTURE_SPEC.md
+SPEC.md
+frontend/firebase.js
+frontend/src/Matchup.jsx

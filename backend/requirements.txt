@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+firebase-admin
+pandas
+scikit-learn
+joblib
+requests
+python-dotenv
+pyarrow
+numpy
+scipy
+bcrypt
+httpx
+python-jose
+authlib
