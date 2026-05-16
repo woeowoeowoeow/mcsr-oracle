@@ -19,13 +19,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "https://mcsr-oracle.vercel.app", "https://mcsr-oracle-app.vercel.app",],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-ADMIN_SECRET = "testsecret123"
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "dev-secret")
 
 # --- Discord OAuth setup ---
 """
@@ -41,7 +41,9 @@ Discord app setup:
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
 DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI")
-JWT_SECRET = os.getenv("JWT_SECRET", "fallback_secret_change_me")
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise ValueError("JWT_SECRET environment variable must be set")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 # --- Schemas ---
@@ -489,6 +491,14 @@ async def create_matchup(req: MatchupCreate, secret: str = ""):
     }
     _, doc_ref = db.collection("matchups").add(new_matchup)
     return {"id": doc_ref.id, **new_matchup}
+
+@app.on_event("startup")
+async def startup_check():
+    required = ["FIREBASE_CREDENTIALS_JSON", "DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET",
+                "DISCORD_REDIRECT_URI", "JWT_SECRET", "ADMIN_SECRET", "FRONTEND_URL"]
+    for var in required:
+        val = os.getenv(var)
+        print(f"{'✓' if val else '✗'} {var}: {'set' if val else 'MISSING'}")
 
 if __name__ == "__main__":
     import uvicorn

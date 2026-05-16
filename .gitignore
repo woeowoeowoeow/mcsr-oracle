@@ -37,3 +37,5 @@ FUTURE_SPEC.md
 SPEC.md
 frontend/firebase.js
 frontend/src/Matchup.jsx
+.vercel
+.env*.local
