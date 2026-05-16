@@ -492,6 +492,40 @@ async def create_matchup(req: MatchupCreate, secret: str = ""):
     _, doc_ref = db.collection("matchups").add(new_matchup)
     return {"id": doc_ref.id, **new_matchup}
 
+@app.post('/admin/close/{matchup_id}')
+async def close_matchup(matchup_id: str, secret: str = ''):
+    if secret != ADMIN_SECRET:
+        raise HTTPException(status_code=401)
+    db = get_db()
+    db.collection('matchups').document(matchup_id).update({'status': 'closed'})
+    return {'status': 'closed'}
+
+@app.post('/admin/settle/{matchup_id}')
+async def settle_matchup(matchup_id: str, secret: str = '', winner: str = ''):
+    if secret != ADMIN_SECRET:
+        raise HTTPException(status_code=401)
+    db = get_db()
+    matchup_ref = db.collection('matchups').document(matchup_id)
+    matchup_ref.update({'status': 'settled', 'winner': winner})
+
+    bets = db.collection('bets').where('matchup_id', '==', matchup_id).get()
+    matchup_data = matchup_ref.get().to_dict()
+
+    for bet in bets:
+        bet_data = bet.to_dict()
+        user_ref = db.collection('users').document(bet_data['user_id'])
+        user = user_ref.get().to_dict()
+
+        winner_side = 'a' if winner == matchup_data['player_a'] else 'b'
+        if bet_data['side'] == winner_side:
+            payout = round(bet_data['amount'] * bet_data['odds_at_placement'], 2)
+            user_ref.update({'balance': user['balance'] + payout})
+            bet.reference.update({'settled': True, 'payout': payout})
+        else:
+            bet.reference.update({'settled': True, 'payout': 0})
+
+    return {'status': 'settled', 'winner': winner}
+
 @app.on_event("startup")
 async def startup_check():
     required = ["FIREBASE_CREDENTIALS_JSON", "DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET",
